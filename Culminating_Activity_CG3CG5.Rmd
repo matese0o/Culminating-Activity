@@ -1,0 +1,1170 @@
+---
+title: "Culminating Activity"
+author: "CG3CG5: J.R.M. Bibera | E.K.N. Mates | B.A.B. Moday | C.K.Y. Ng | P.E.A. Sagarino"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    number_sections: false
+    latex_engine: xelatex
+    keep_tex: false
+  html_document:
+    number_sections: false
+header-includes:
+  - \usepackage{titlesec}
+  - \usepackage{geometry}
+  - \geometry{margin=1in}
+  - \newcommand{\chapterbreak}{\clearpage}
+  - \titleformat{\section}[block]{\Large\bfseries}{}{0em}{}
+  - \titleformat{\subsection}[block]{\large\bfseries}{}{0em}{}
+  - \titleformat{\subsubsection}[block]{\normalsize\bfseries}{}{0em}{}
+  - \usepackage{fvextra}
+  - \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = FALSE,
+  warning    = FALSE,
+  message    = FALSE,
+  fig.align  = "center",
+  fig.width  = 6.5,
+  fig.height = 4.2,
+  tidy       = TRUE,
+  tidy.opts  = list(width.cutoff = 68)
+)
+set.seed(123)
+```
+
+```{r load-libraries, include=FALSE}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(corrplot)
+library(car)
+library(lmtest)
+library(caret)
+library(knitr)
+library(kableExtra)
+```
+
+# Abstract
+
+The rapid global expansion of the artificial intelligence (AI) industry has produced a
+labor market in which annual compensation varies dramatically across roles, experience
+levels, work arrangements, and firm sizes, yet the relative importance of these factors
+remains poorly understood. Grounded in Human-Capital Theory (Becker, 1964) and Tournament
+Theory (Lazear & Rosen, 1981), and building on the visual analytics investigation by
+Karygulov and Gaso (2025) as the mother study, this paper employs formal inferential
+methods to test and quantify the salary determinants documented in prior descriptive work.
+The analysis draws on the *Global AI Job Market and Salary Trends 2025* Kaggle dataset
+(Sajjad, 2025), a cross-sectional sample of 15,000 AI job postings with salaries
+standardized to USD, and applies three complementary techniques: (1) descriptive
+statistics and visualizations to characterize the distribution of salary across key
+subgroups; (2) a one-way ANOVA to test whether mean salary differs significantly across
+experience levels; and (3) a multiple linear regression model, estimated on a 70/30
+train–test split, to isolate the independent effect of each predictor while controlling
+for the others. Experience level emerges as the single strongest predictor, with salary
+rising steeply from entry through executive levels, a pattern consistent with both
+human-capital accumulation and tournament prize structures. Remote work ratio exerts a
+small but statistically positive effect, and both company size and education requirement
+contribute meaningfully to compensation. The final model achieves an adjusted
+R$^2$ $\approx$ 0.64 and a test-set RMSE of approximately \$38,000 USD, indicating
+that the included predictors capture roughly two-thirds of salary variance while
+substantial heterogeneity attributable to unmeasured factors such as job location,
+specific technical skill sets, and industry sector remains. These findings offer
+actionable, data-driven guidance for job seekers calibrating salary expectations,
+employers designing competitive compensation structures, and educators aligning curricula
+with market demand in the AI sector.
+
+\clearpage
+
+# Chapter 1: Introduction
+
+## Background of the Study
+
+Artificial intelligence has gone from a small area of academic research to one of the
+most important economic forces in the world. Between 2020 and 2025, global investment
+in AI surpassed one trillion US dollars, and job postings that require AI skills grew
+by more than 70% across major economies (World Economic Forum, 2023). This growth has
+created a job market where salaries can vary enormously: a new data analyst and a
+senior machine-learning engineer may both work in "AI," yet their pay can differ by
+hundreds of thousands of dollars.
+
+Several factors are believed to drive these salary differences. Experience level is
+often cited as the most powerful factor in technology salaries, with AI skills alone
+carrying a wage premium comparable to holding a PhD (Stephany et al., 2023).
+Remote work, which became common after the COVID-19 pandemic, also plays a role:
+tech workers are willing to forgo up to 25% of total compensation for remote flexibility,
+and employers may offer slightly higher pay for remote roles to attract talent
+(Cullen et al., 2025). Educational credentials signal specialized ability in AI roles
+(Stephany et al., 2023), and company size also affects how much workers are paid
+(Kline, 2024).
+
+## Statement of the Problem
+
+The main research question is: **Which factors (experience level, remote work ratio, company size, and education requirement) significantly predict annual salary (USD) in AI-related jobs?**
+
+Sub-questions include:
+
+1. How is `salary_usd` spread across different experience levels, employment types, and
+   remote work arrangements?
+2. What is the size and direction of each predictor's effect on salary?
+3. How well does the regression model predict salary on data it has not seen before?
+
+## Objectives of the Study
+
+**General Objective:** To find the key factors that determine annual salary in the global AI job market and to build a predictive model that explains salary differences across experience levels, work arrangements, company sizes, and education requirements.
+
+**Specific Objectives:**
+1. To describe how `salary_usd` is distributed across key groups using descriptive statistics and visualizations.
+2. To test whether average salary differs significantly across experience levels using a one-way ANOVA.
+3. To build a multiple linear regression model for salary, check the model's assumptions, and evaluate how well it predicts on a test set.
+
+## Hypotheses
+
+- **H0:** There is no significant relationship between experience level, remote work ratio,
+  company size, education requirement, and annual salary (USD) in AI-related jobs.
+- **H1:** At least one of these factors (experience level, remote work ratio, company size, or education requirement) significantly affects annual salary (USD) in AI-related jobs.
+
+## Significance of the Study
+
+This study helps **job seekers** understand what salary to expect, **employers and HR teams**
+set fair and competitive pay, **educators** design programs that match what the market needs,
+and **policy makers** make decisions about workforce development based on real data.
+
+## Scope and Limitations
+
+This study uses the *Global AI Job Market and Salary Trends 2025* Kaggle dataset (Sajjad, 2025), which is
+a snapshot of 15,000 AI job postings. All salaries are in USD; differences in the cost of
+living across countries are not adjusted for. Because this is cross-sectional data (one
+point in time), we cannot prove that any factor *causes* salary changes, only that they
+are related. The dataset contains no missing values in its published form, so imputation is
+demonstrated for completeness only.
+
+\clearpage
+
+# Chapter 2: Review of Related Literature
+
+## Related Studies
+
+This section reviews three key empirical studies that directly examine factors shaping
+compensation in the AI labor market. The first serves as the primary mother study from
+which this paper draws its core variables and inferential approach; the remaining two
+provide supporting empirical context.
+
+**Karygulov and Gaso (2025)** conducted a comprehensive
+visual analytics investigation of the global AI job market using the *Global AI Job Market
+and Salary Trends 2025* dataset, the same 15,000-record dataset (published on Kaggle by
+Sajjad, 2025) used in the present study. Through univariate visualizations, bivariate comparisons, and interactive dashboards,
+the authors identified four robust patterns: (1) experience level was the single most
+influential variable, with salary rising steeply from entry through executive levels;
+(2) remote roles offered marginally higher pay than equivalent in-office positions, and
+roughly one-third of postings were fully remote; (3) research-intensive roles clustered at
+the master's and PhD level while engineering roles showed greater credential flexibility;
+and (4) large organizations consistently paid higher median salaries than small or
+medium-sized firms. The present study extends this work by moving beyond description and
+building formal inferential models (a one-way ANOVA and a multiple linear regression)
+to test whether these patterns are statistically significant and to quantify each
+predictor's independent effect size.
+
+**Cullen, Pakzad-Hurson, and Perez-Truglia (2025)** conducted a field experiment with
+1,396 US tech workers, collecting revealed-preference data on actual job offers and
+acceptances between May 2023 and December 2024. Their central finding is that workers
+are willing to forgo approximately 25% of total compensation for a position that is
+otherwise identical but offers partial or full remote work, an estimate three to five
+times larger than prior survey-based studies. Crucially, they also found that tech
+employers offer slightly *more* pay for remote positions than equivalent in-office roles,
+suggesting the market does not penalize location flexibility and may even reward it. This
+directly informs the expected positive direction of the `remote_ratio` coefficient in the
+present regression model.
+
+**Kline (2024)** reviewed the extensive literature on firm wage differences in the
+*Handbook of Labor Economics* and confirmed that high-wage firms are systematically
+larger, more productive, and more sought after by workers. Using fixed-effects estimators
+applied to large administrative datasets, the review documents that the firm-size wage
+premium is robust across countries and time periods, and that larger firms tend to employ
+more credentialed, higher-wage workers, a pattern consistent with both human-capital
+sorting and monopsonistic wage-setting. This provides direct empirical grounding for
+including `company_size` as a predictor in the present regression model and for
+hypothesizing a positive coefficient.
+
+\clearpage
+
+## Related Literature
+
+### Human-Capital Theory (Becker, 1964)
+
+Human-capital theory provides the primary theoretical foundation for this study. First
+formalized by Becker (1964), its central premise is that workers accumulate productive
+capabilities through deliberate investments in formal education, on-the-job training, and
+professional experience, and that wages in a competitive labor market are expected to
+reflect this accumulated productivity. The theory distinguishes between *general* human
+capital (skills transferable across employers, such as programming proficiency) and
+*firm-specific* human capital, valuable only within a particular organization. A recent
+comprehensive review by Deming and Silliman (2024) confirms that returns to human capital
+remain robust across modern labor markets, while also noting that the value of
+higher-order, experience-based skills has grown relative to formal credentials alone. This
+is especially relevant in AI occupations, where Stephany et al. (2023) found that
+demonstrated AI skills carry a wage premium of 16% (comparable to a PhD) while the
+return to formal degrees in AI roles has declined, suggesting that applied experience now
+matters more than credentials. This theory directly justifies why both `years_experience`
+and `experience_level` are expected to show strong positive relationships with
+`salary_usd`, and why `education_required` should also carry a salary premium.
+Human-capital theory offers the broadest coverage of this study's predictors,
+simultaneously accounting for the experience gradient, the education premium, and the
+company-size effect, making it the single most important theoretical anchor for this paper.
+
+### Tournament Theory (Lazear & Rosen, 1981)
+
+Tournament theory, originally proposed by Lazear and Rosen (1981), explains why
+compensation does not rise smoothly with seniority but instead increases dramatically at
+the top levels of organizational hierarchies. The core argument is that senior and
+executive compensation functions as a *prize* in an internal competition: by making
+top-level pay disproportionately large, firms create powerful incentives for workers at
+every lower level to exert maximum effort. The theory predicts a convex salary-seniority
+curve: modest gains from entry to mid-level, larger gains from mid to senior, and a very
+large jump to executive compensation. Contemporary empirical work continues to support
+these predictions. Wang et al. (2022) found a significant inverted-U relationship between
+the top-management pay gap and corporate performance across 733 listed firms, confirming
+that a moderately large pay spread at senior levels incentivizes talent advancement. Kim
+and Koo (2023) further demonstrated a negative effect of tournament incentives on
+innovation risk-taking, suggesting that while steep pay gradients motivate competitive
+effort, they can also shape how workers strategically allocate effort, a nuance directly
+relevant to interpreting the large Executive-level salary premium observed in AI job market
+data. Tournament theory uniquely explains the non-linearity of the experience–salary
+relationship, and the expected outsized magnitude of the Executive coefficient in the OLS
+regression is one of this study's key empirical expectations.
+
+\clearpage
+
+## Conceptual Framework
+
+The figure below maps the expected relationships between the study's predictor variables
+and the outcome variable `salary_usd`. Predictors are grouped by the theoretical
+perspective that most directly motivates their inclusion: Human-Capital Theory (Becker,
+1964) and Tournament Theory (Lazear & Rosen, 1981). Arrows marked with a "+" sign
+indicate a hypothesized positive relationship supported by theory and prior research; the
+"?" on employment type reflects the absence of a clear directional prediction.
+
+```{r conceptual-framework, echo=FALSE, fig.height=5.5, fig.width=8.5, fig.align='center', out.width='80%'}
+library(grid)
+
+# Setup a clean viewport that fills the figure region
+grid.newpage()
+pushViewport(viewport(x = 0.5, y = 0.5, width = 0.95, height = 0.95,
+                      just = c("centre", "centre"), clip = "off"))
+
+# Colour palette
+col_blue  <- "#2C6FAD"; fill_blue  <- "#D0E8F5"
+col_green <- "#2E7D32"; fill_green <- "#D5EED5"
+col_amber <- "#B06000"; fill_amber <- "#FFF0C8"
+col_red   <- "#B02020"; fill_red   <- "#FADBD8"
+
+# Helper: draw a labelled box
+draw_box <- function(cx, cy, w, h, lines, fill, border, fs = 6.8) {
+  grid.rect(x = cx, y = cy, width = w, height = h,
+            default.units = "npc",
+            gp = gpar(fill = fill, col = border, lwd = 1.1))
+  n <- length(lines)
+  for (i in seq_along(lines)) {
+    off <- (i - (n + 1) / 2) * 0.028
+    grid.text(lines[i], x = cx, y = cy + off, default.units = "npc",
+              gp = gpar(fontsize = fs, col = "black"))
+  }
+}
+
+# Helper: draw arrow with sign label
+draw_arrow <- function(x0, y0, x1, y1, lbl = "+", col = "grey30") {
+  grid.lines(x = c(x0, x1), y = c(y0, y1), default.units = "npc",
+             gp = gpar(col = col, lwd = 1.3, fill = col),
+             arrow = arrow(length = unit(0.08, "inches"), type = "closed"))
+  mx <- (x0 + x1) / 2 + 0.012
+  my <- (y0 + y1) / 2 + 0.010
+  grid.text(lbl, x = mx, y = my, default.units = "npc",
+            gp = gpar(fontsize = 7.5, col = col, fontface = "bold"))
+}
+
+# Helper: horizontal group label box (placed to the left of predictor boxes)
+group_label <- function(cx, cy, label, citation, col, fill = "white") {
+  grid.rect(x = cx, y = cy, width = 0.16, height = 0.045,
+            default.units = "npc", gp = gpar(fill = fill, col = col, lwd = 1.2))
+  grid.text(label, x = cx, y = cy + 0.012, default.units = "npc",
+            gp = gpar(fontsize = 5.6, col = col, fontface = "bold"))
+  grid.text(citation, x = cx, y = cy - 0.012, default.units = "npc",
+            gp = gpar(fontsize = 5.2, col = col, fontface = "italic"))
+}
+
+# --- Layout constants - shifted right for perfect centering ----------
+lx <- 0.38      # predictor box centre (was 0.35)
+bw <- 0.30
+bh <- 0.075
+
+ox <- 0.72      # outcome box centre (was 0.75)
+ow <- 0.22
+oh <- 0.15
+
+# --- Draw predictor boxes (left side) ---------------------------------
+draw_box(lx, 0.82, bw, bh,
+         c("experience_level", "(Entry / Mid / Senior / Executive)"),
+         fill_blue, col_blue)
+draw_box(lx, 0.70, bw, bh,
+         c("years_experience", "(0 - 19 years)"),
+         fill_blue, col_blue)
+draw_box(lx, 0.58, bw, bh,
+         c("education_required", "(Associate / Bachelor / Master / PhD)"),
+         fill_blue, col_blue)
+# Labels placed relative to the new lx
+group_label(lx - 0.24, (0.82 + 0.58)/2,
+            "Human Capital", "(Becker, 1964)", col_blue)
+
+# Work-arrangement group (green)
+draw_box(lx, 0.43, bw, bh,
+         c("remote_ratio", "(0 / 50 / 100 %)"),
+         fill_green, col_green)
+draw_box(lx, 0.31, bw, bh,
+         c("employment_type", "(FT / PT / CT / FL)"),
+         fill_green, col_green)
+group_label(lx - 0.24, (0.43 + 0.31)/2,
+            "Work Arrangement", "(Cullen et al., 2025)", col_green)
+
+# Organisational group (amber)
+draw_box(lx, 0.16, bw, bh,
+         c("company_size", "(Small / Medium / Large)"),
+         fill_amber, col_amber)
+group_label(lx - 0.24, 0.16,
+            "Organisational Context", "(Kline, 2024)", col_amber)
+
+# --- Draw outcome box (right side) ------------------------------------
+draw_box(ox, 0.55, ow, oh,
+         c("OUTCOME", "salary_usd", "(Annual USD)"),
+         fill_red, col_red, fs = 7.5)
+
+# --- Arrows from predictors to outcome --------------------------------
+ax_start <- lx + bw/2 + 0.01
+ax_end   <- ox - ow/2 - 0.005
+
+draw_arrow(ax_start, 0.82, ax_end, 0.62, "+", col_blue)
+draw_arrow(ax_start, 0.70, ax_end, 0.60, "+", col_blue)
+draw_arrow(ax_start, 0.58, ax_end, 0.58, "+", col_blue)
+draw_arrow(ax_start, 0.43, ax_end, 0.54, "+", col_green)
+draw_arrow(ax_start, 0.31, ax_end, 0.52, "?", col_green)
+draw_arrow(ax_start, 0.16, ax_end, 0.50, "+", col_amber)
+
+# --- Footer note - centered with the whole figure ---------------------
+grid.text(
+  paste0("Theory: Human-Capital Theory (Becker, 1964; Deming & Silliman, 2024)  |  ",
+         "Tournament Theory (Lazear & Rosen, 1981; Wang et al., 2022)"),
+  x = 0.5, y = 0.02, default.units = "npc",
+  gp = gpar(fontsize = 5.8, col = "grey40", fontface = "italic"))
+
+popViewport()
+```
+
+*Figure 1. Conceptual framework showing the four predictor groups and their hypothesized
+direction of effect on annual AI salary (USD). Arrows marked "+" indicate a positive
+relationship supported by theory and prior research; "?" on employment_type reflects the
+absence of a clear directional prediction. Note: employment_type is shown for completeness
+but was excluded from the final regression model.*
+
+\clearpage
+
+# Chapter 3: Methodology
+
+## Research Design
+
+This study uses a **quantitative, non-experimental, correlational and predictive research
+design**. No variables are changed or manipulated; instead, existing data are analyzed to
+describe patterns and estimate salary prediction models. This design fits because: 
+(a) it is
+not possible to experimentally manipulate salary; 
+(b) the research questions are about
+prediction; and 
+(c) the large sample size (n = 15,000) produces stable and reliable
+estimates.
+
+## Data Collection
+
+```{r load-data, include=FALSE}
+data_raw <- read.csv("~/Downloads/ai_job_dataset1.csv", stringsAsFactors = FALSE)
+n_rows <- nrow(data_raw)
+n_cols <- ncol(data_raw)
+```
+
+The dataset, *Global AI Job Market and Salary Trends 2025*, was downloaded from Kaggle
+(Sajjad, 2025). It contains `r n_rows` records across `r n_cols` variables, with all salaries converted to USD. Table 1 provides a structured overview of all variables, their data types, and example values drawn from the first record.
+
+```{r data-preview}
+library(kableExtra)
+var_overview <- data.frame(
+  `#`       = 1:ncol(data_raw),
+  Variable  = names(data_raw),
+  Type      = sapply(data_raw, function(x) class(x)[1]),
+  `Example Value` = sapply(data_raw, function(x) as.character(x[1])),
+  check.names = FALSE
+)
+kable(var_overview, row.names = FALSE,
+      caption = "Overview of all 20 variables in the AI job postings dataset. Each row describes one column in the raw data; the example value is taken from the first record. The outcome variable is salary\\_usd, already standardized to USD.",
+      booktabs = TRUE, longtable = FALSE) %>%
+  kable_styling(latex_options = c("striped", "scale_down"),
+                font_size = 9,
+                full_width = FALSE)
+```
+
+```{r imputation}
+mode_val <- function(x) {
+  ux <- unique(x[!is.na(x)])
+  ux[which.max(tabulate(match(x, ux)))]
+}
+data <- data_raw
+num_cols <- names(data)[sapply(data, is.numeric)]
+for (col in num_cols) {
+  if (any(is.na(data[[col]]))) {
+    data[[col]][is.na(data[[col]])] <- mean(data[[col]], na.rm = TRUE)
+  }
+}
+char_cols <- names(data)[sapply(data, is.character)]
+for (col in char_cols) {
+  if (any(is.na(data[[col]]))) {
+    data[[col]][is.na(data[[col]])] <- mode_val(data[[col]])
+  }
+}
+
+na_remaining <- sum(is.na(data))
+```
+
+Following imputation, `r if(exists("na_remaining")) na_remaining else 0` missing values remained in the dataset, confirming that the procedure successfully resolved all detected gaps prior to analysis.
+
+```{r factor-conversion}
+data$experience_level   <- factor(data$experience_level,
+                                   levels = c("EN", "MI", "SE", "EX"),
+                                   labels = c("Entry", "Mid", "Senior", "Executive"))
+data$employment_type    <- factor(data$employment_type)
+data$company_size       <- factor(data$company_size,
+                                   levels = c("S", "M", "L"),
+                                   labels = c("Small", "Medium", "Large"))
+data$education_required <- factor(data$education_required,
+                                   levels = c("Associate", "Bachelor", "Master", "PhD"))
+data$remote_ratio       <- as.integer(data$remote_ratio)
+```
+
+\clearpage
+
+## Variables Description
+
+The **dependent variable** is `salary_usd`: annual gross pay in USD. Table 2 summarizes
+each predictor variable, its measurement type, and its range of values.
+
+| Variable | Type | Values / Range | Role |
+|---|---|---|---|
+| `experience_level` | Categorical (ordered) | Entry, Mid, Senior, Executive | Predictor |
+| `years_experience` | Numeric | 0 -- 19 years | Predictor |
+| `remote_ratio` | Numeric | 0, 50, or 100 (%) | Predictor |
+| `company_size` | Categorical (ordered) | Small, Medium, Large | Predictor |
+| `education_required` | Categorical (ordered) | Associate, Bachelor, Master, PhD | Predictor |
+
+*Table 2. Study variables used as predictors of annual AI salary (USD). Categorical
+variables were encoded as ordered factors prior to modeling; remote_ratio represents
+the percentage of work performed remotely (0 = on-site, 50 = hybrid, 100 = fully remote).*
+
+## Data Analysis Techniques
+
+The following methods are used in this study:
+
+1. **Descriptive Statistics**: Mean, median, standard deviation, frequency tables,
+   histograms, and box plots to summarize and explore the data.
+2. **One-Way ANOVA**: A statistical test to check whether average salary is significantly
+   different across experience levels.
+3. **Multiple Linear Regression**: A model that estimates how much each predictor affects
+   salary, all at the same time, while holding the others constant. Includes assumption
+   checks (VIF for multicollinearity, Breusch-Pagan test for unequal variance, residual
+   plots for linearity and normality) and test-set evaluation using RMSE.
+
+\clearpage
+
+# Chapter 4: Results and Discussion
+
+## Descriptive Statistics
+
+The dataset contains 15,000 AI job postings. Table 3 summarizes the distribution of
+annual salary (USD) across the full sample.
+
+```{r desc-salary-stats}
+sal_stats <- data %>%
+  summarise(
+    N      = n(),
+    Mean   = round(mean(salary_usd), 0),
+    Median = round(median(salary_usd), 0),
+    SD     = round(sd(salary_usd), 0),
+    Min    = min(salary_usd),
+    Q1     = round(quantile(salary_usd, 0.25), 0),
+    Q3     = round(quantile(salary_usd, 0.75), 0),
+    Max    = max(salary_usd)
+  )
+kable(sal_stats,
+      caption = "Summary statistics for annual salary (USD) across all 15,000 AI job postings. The mean exceeds the median, indicating a right-skewed distribution driven by high executive-level salaries.",
+      format.args = list(big.mark = ","))
+```
+
+The average annual salary is `r format(sal_stats$Mean, big.mark=",")` USD (median:
+`r format(sal_stats$Median, big.mark=",")` USD; SD:
+`r format(sal_stats$SD, big.mark=",")` USD), ranging from
+`r format(sal_stats$Min, big.mark=",")` to `r format(sal_stats$Max, big.mark=",")`
+USD. Because the mean exceeds the median, the distribution is right-skewed -- a small
+number of high-paying executive roles pull the average upward.
+
+
+Tables 4 to 8 present frequency counts for each categorical predictor. The four experience levels are approximately evenly distributed (~25% each), ensuring salary comparisons across groups are not distorted by unequal cell sizes.
+
+```{r desc-freq-tables}
+make_freq <- function(df, col) {
+  df %>%
+    count(!!sym(col), name = "Count") %>%
+    mutate(Percent = round(Count / sum(Count) * 100, 1)) %>%
+    rename(Level = !!sym(col))
+}
+kable(make_freq(data, "experience_level"),
+      caption = "Frequency distribution of experience level. Levels are approximately balanced (~25% each), supporting valid between-group salary comparisons.")
+kable(make_freq(data, "employment_type"),
+      caption = "Frequency distribution of employment type. Full-time (FT) positions make up the substantial majority of postings.")
+kable(make_freq(data, "company_size"),
+      caption = "Frequency distribution of company size. Small, medium, and large firms are represented in roughly equal proportions.")
+kable(make_freq(data, "education_required"),
+      caption = "Frequency distribution of education requirement. Bachelor's and Master's degrees account for the largest shares of postings.")
+kable(make_freq(data, "remote_ratio"),
+      caption = "Frequency distribution of remote work ratio (%). Postings are evenly split across on-site (0%), hybrid (50%), and fully remote (100%) arrangements.")
+```
+
+```{r desc-salary-by-exp}
+sal_exp <- data %>%
+  group_by(experience_level) %>%
+  summarise(
+    N      = n(),
+    Mean   = round(mean(salary_usd), 0),
+    Median = round(median(salary_usd), 0),
+    SD     = round(sd(salary_usd), 0),
+    .groups = "drop"
+  )
+kable(sal_exp,
+      caption = "Mean, median, and standard deviation of annual salary (USD) by experience level. Salary increases steadily from Entry to Executive, with the Executive tier showing the largest spread (SD), consistent with Tournament Theory.",
+      format.args = list(big.mark = ","))
+```
+
+\clearpage
+
+## Visualizations
+
+The histogram in Figure 2 displays the overall salary distribution. Most postings cluster
+between \$50,000 and \$200,000, with a long tail extending toward \$400,000 representing
+high-paying executive and specialized roles.
+
+```{r plot-histogram}
+ggplot(data, aes(x = salary_usd)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 50, fill = "#4e79a7", colour = "white", alpha = 0.85) +
+  geom_density(colour = "#e15759", linewidth = 1) +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "Distribution of Annual Salary (USD)",
+       x = "Annual Salary (USD)", y = "Density") +
+  theme_minimal(base_size = 11)
+```
+
+*Figure 2. Distribution of annual salary (USD) across 15,000 AI job postings. The red 
+density curve confirms a right-skewed distribution; the long upper tail reflects the disproportionately high compensation of executive-level roles.*
+
+\clearpage
+
+The box plots in Figure 3 confirm a clear, monotonic salary progression across experience levels. Entry-level salaries cluster well below \$100,000, while Executive salaries typically exceed \$150,000. The widening interquartile range at higher levels reflects greater heterogeneity in senior AI roles, consistent with Tournament Theory.
+
+```{r plot-boxplot}
+ggplot(data, aes(x = experience_level, y = salary_usd, fill = experience_level)) +
+  geom_boxplot(outlier.alpha = 0.25, outlier.size = 0.8) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Annual Salary by Experience Level",
+       x = "Experience Level", y = "Annual Salary (USD)") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "none")
+```
+
+*Figure 3. Box plots of annual salary (USD) by experience level. Median salary increases monotonically with experience, and the spread widens at the Executive tier, reflecting
+wide variation in senior AI compensation.*
+
+\clearpage
+
+Figure 4 shows the ten most frequently listed job titles. Posting counts are broadly similar across all titles, confirming that no single role dominates the sample and that regression findings are unlikely to be driven by any one job category.
+
+```{r plot-bar-titles}
+top10 <- data %>% count(job_title, sort = TRUE) %>% slice_head(n = 10)
+ggplot(top10, aes(x = reorder(job_title, n), y = n)) +
+  geom_col(fill = "#76b7b2") +
+  coord_flip() +
+  labs(title = "Top 10 AI Job Titles", x = NULL, y = "Number of Postings") +
+  theme_minimal(base_size = 11)
+```
+
+*Figure 4. Top 10 AI job titles by number of postings. The near-uniform counts across
+titles indicate a well-diversified sample with no single dominant role.*
+
+\clearpage
+
+Figure 5 plots salary against remote ratio by experience level. For every experience group,
+there is a small positive association between remote work ratio and salary. The salary
+differences *between* groups are far larger than the within-group effect of remote ratio --
+reinforcing experience level as the dominant predictor while confirming a consistent
+marginal remote-work premium.
+
+```{r plot-scatter-remote}
+ggplot(data, aes(x = remote_ratio, y = salary_usd, colour = experience_level)) +
+  geom_jitter(alpha = 0.20, width = 2, height = 0, size = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_colour_brewer(palette = "Set1") +
+  labs(title = "Salary vs. Remote Ratio by Experience Level",
+       x = "Remote Ratio (%)", y = "Annual Salary (USD)",
+       colour = "Experience Level") +
+  theme_minimal(base_size = 11)
+```
+
+*Figure 5. Scatter plot of annual salary (USD) against remote work ratio (%), colored by
+experience level with linear trend lines. All four experience groups show a slight positive
+slope, indicating that higher remote flexibility is associated with marginally higher pay,
+independent of experience level.*
+
+\clearpage
+
+## One-Way ANOVA: Salary Across Experience Levels
+
+Before building the regression model, a one-way ANOVA is used to test whether average salary is significantly different across the four experience levels. ANOVA asks: "Is it plausible that all groups have the same mean salary, or are the differences too large to be due to chance?"
+
+```{r anova}
+anova_model   <- aov(salary_usd ~ experience_level, data = data)
+anova_summary <- summary(anova_model)
+
+f_val       <- round(anova_summary[[1]]$`F value`[1], 2)
+p_anova     <- anova_summary[[1]]$`Pr(>F)`[1]
+p_anova_str <- ifelse(p_anova < 0.001, "< 0.001", round(p_anova, 4))
+
+anova_tbl <- data.frame(
+  Source    = c("Experience Level", "Residuals"),
+  DF        = c(anova_summary[[1]]$Df[1], anova_summary[[1]]$Df[2]),
+  `Sum Sq`  = c(round(anova_summary[[1]]$`Sum Sq`[1], 0),
+                round(anova_summary[[1]]$`Sum Sq`[2], 0)),
+  `Mean Sq` = c(round(anova_summary[[1]]$`Mean Sq`[1], 0),
+                round(anova_summary[[1]]$`Mean Sq`[2], 0)),
+  `F value` = c(f_val, NA),
+  `p value` = c(p_anova_str, NA)
+)
+kable(anova_tbl, row.names = FALSE,
+      caption = "ANOVA results for salary differences across experience levels. The large F-statistic (p < 0.001) provides strong evidence that mean salary differs significantly between experience groups.",
+      format.args = list(big.mark = ","))
+```
+
+The ANOVA yields F = `r f_val` (p `r p_anova_str`), indicating a statistically
+significant difference in average salary across experience levels. **H0 is rejected.**
+To determine *which specific pairs* differ, Table 11 presents the Tukey HSD post-hoc
+results.
+
+```{r tukey-hsd}
+tukey_res <- TukeyHSD(anova_model)$experience_level
+tukey_tbl <- data.frame(
+  Comparison  = rownames(tukey_res),
+  Difference  = format(round(tukey_res[, "diff"], 0), big.mark = ","),
+  Lower_95_CI = format(round(tukey_res[, "lwr"],  0), big.mark = ","),
+  Upper_95_CI = format(round(tukey_res[, "upr"],  0), big.mark = ","),
+  Adj_p_value = ifelse(tukey_res[, "p adj"] < 0.001, "< 0.001",
+                       round(tukey_res[, "p adj"], 4))
+)
+kable(tukey_tbl, row.names = FALSE,
+      col.names = c("Comparison", "Mean Diff (USD)", "Lower 95% CI (USD)",
+                    "Upper 95% CI (USD)", "Adj. p-value"),
+      caption = "Tukey HSD post-hoc pairwise comparisons of mean salary (USD) by experience level. All six pairs are statistically significant (adj. p < 0.001), confirming that each experience tier commands a distinctly different salary.",
+      format.args = list(big.mark = ","))
+```
+
+All pairwise comparisons are statistically significant (all adjusted p-values < 0.001), confirming that every experience level pays a distinctly different average salary. The salary gap between Executive and Entry level is the largest, consistent with Tournament Theory's prediction of a disproportionately large reward at the top.
+
+\clearpage
+
+## Multiple Linear Regression
+
+### Train/Test Split
+
+The dataset is split into a **training set** (70%) used to fit the model and a **test set** (30%) used to evaluate prediction accuracy on unseen data.
+
+```{r reg-split}
+set.seed(123)
+reg_idx   <- createDataPartition(data$salary_usd, p = 0.70, list = FALSE)
+train_reg <- data[ reg_idx, ]
+test_reg  <- data[-reg_idx, ]
+```
+
+The training set contains `r nrow(train_reg)` rows and the test set contains `r nrow(test_reg)` rows, reflecting a 70/30 partition of the full 15,000-record dataset.
+
+### Model Fitting
+
+The regression model is:
+
+$$\text{salary\_usd} = \beta_0 + \beta_1(\text{experience\_level}) + \beta_2(\text{remote\_ratio}) + \beta_3(\text{company\_size}) + \beta_4(\text{education\_required}) + \varepsilon$$
+Each $\beta$ (beta) coefficient tells us how much salary changes for a one-unit increase
+in that predictor, while all other predictors stay the same. $\varepsilon$ is the error
+term (the part of salary that the model cannot explain).
+
+```{r ols-model}
+ols     <- lm(salary_usd ~ experience_level + remote_ratio +
+                company_size + education_required, data = train_reg)
+ols_sum <- summary(ols)
+
+rsq       <- round(ols_sum$r.squared,     3)
+adj_rsq   <- round(ols_sum$adj.r.squared, 3)
+f_stat    <- round(ols_sum$fstatistic[1], 2)
+p_model   <- pf(ols_sum$fstatistic[1], ols_sum$fstatistic[2],
+                ols_sum$fstatistic[3], lower.tail = FALSE)
+p_mod_str <- ifelse(p_model < 0.001, "< 0.001", round(p_model, 4))
+
+rmse_fn        <- function(actual, predicted) round(sqrt(mean((actual - predicted)^2)), 0)
+rmse_train_ols <- rmse_fn(train_reg$salary_usd, predict(ols, train_reg))
+rmse_test_ols  <- rmse_fn(test_reg$salary_usd,  predict(ols, test_reg))
+```
+
+Table 12 presents the estimated coefficients. Experience level dominates all other
+predictors -- the Executive-level coefficient is the largest in absolute magnitude,
+consistent with Tournament Theory. The intercept represents the baseline salary for an
+Entry-level, fully on-site employee at a small company requiring an Associate degree.
+
+```{r ols-coeff-table}
+coef_df <- as.data.frame(coef(ols_sum))
+coef_df$Variable <- rownames(coef_df)
+coef_df <- coef_df %>%
+  select(Variable, Estimate, `Std. Error`, `t value`, `Pr(>|t|)`) %>%
+  mutate(
+    Estimate     = round(Estimate, 1),
+    `Std. Error` = round(`Std. Error`, 1),
+    `t value`    = round(`t value`, 2),
+    Sig          = case_when(
+      `Pr(>|t|)` < 0.001 ~ "***",
+      `Pr(>|t|)` < 0.01  ~ "**",
+      `Pr(>|t|)` < 0.05  ~ "*",
+      `Pr(>|t|)` < 0.1   ~ ".",
+      TRUE               ~ ""
+    ),
+    `Pr(>|t|)`   = round(`Pr(>|t|)`, 4)
+  )
+kable(coef_df, row.names = FALSE,
+      caption = "OLS regression coefficient estimates for annual salary (USD). Each estimate reflects the change in salary associated with that predictor, holding all others constant. Significance codes: *** p < 0.001, ** p < 0.01, * p < 0.05.",
+      format.args = list(big.mark = ","))
+```
+
+\clearpage
+
+### Assumption Checks
+
+A linear regression model is only trustworthy if its four main assumptions hold. These
+are checked below.
+
+**1. No multicollinearity.** Predictors should not be too highly correlated with each other, assessed using the Variance Inflation Factor (VIF). Table 13 confirms all VIF values are well below the threshold of 5.
+
+```{r vif}
+kable(round(as.data.frame(vif(ols)), 3),
+      caption = "Variance Inflation Factors (VIF) for each predictor in the OLS model. All values well below 5 confirm that multicollinearity is not a concern.")
+```
+
+**2. Homoscedasticity:** the spread of errors should be roughly the same across all predicted values. This is tested with the Breusch-Pagan test. A p-value above 0.05
+means this assumption holds.
+
+```{r bp-test}
+bp <- bptest(ols)
+bp_p_str <- ifelse(bp$p.value < 0.001, "< 0.001", round(bp$p.value, 4))
+```
+
+The Breusch-Pagan statistic is `r round(bp$statistic, 2)` with a p-value of `r bp_p_str`.
+
+The test checks whether the spread of residuals is constant across all fitted values (homoscedasticity). 
+A significant result (p < 0.05) indicates heteroscedasticity, unequal error variance, which is common with salary data that spans a very wide range. This does not invalidate the regression findings but means standard errors should be interpreted with some caution.
+
+**3. Linearity and normality of residuals:** the residual plots below check whether the relationship between predictors and salary is roughly linear, and whether the errors follow a normal distribution.
+
+```{r diagnostics-plots, fig.height=6, out.width="100%"}
+par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+plot(ols, which = 1:4, pch = 16, cex = 0.35, col = rgb(0, 0, 0, 0.12))
+par(mfrow = c(1, 1))
+```
+
+How to read each panel: the **Residuals vs Fitted** plot should show random scatter
+around the horizontal line; the **Normal Q-Q** plot should have points tracking the
+diagonal closely; the **Scale-Location** plot should show an approximately flat trend
+line; and the **Residuals vs Leverage** plot highlights influential observations.
+
+*Figure 6. Standard OLS diagnostic plots (2 x 2 panel) for the fitted salary regression
+model. Some fanning in the Scale-Location plot is expected given the wide salary range;
+the Q-Q plot assesses whether residuals are approximately normally distributed.*
+
+\clearpage
+
+### Model Performance
+
+Table 14 summarizes key fit and predictive accuracy metrics. The near-identical training
+and test RMSE values indicate the model generalizes well to unseen data without overfitting.
+
+```{r performance-table}
+kable(
+  data.frame(
+    Metric      = c("R-squared", "Adjusted R-squared", "RMSE (train)", "RMSE (test)"),
+    Value       = c(rsq, adj_rsq,
+                    format(rmse_train_ols, big.mark = ","),
+                    format(rmse_test_ols,  big.mark = ","))
+  ),
+  caption = "OLS regression model performance metrics. R-squared and adjusted R-squared measure variance explained; RMSE (USD) measures average prediction error on the training and held-out test sets respectively.")
+```
+
+### Interpretation
+
+The regression model is statistically significant overall (F = `r f_stat`, p `r p_mod_str`),
+meaning the predictors together explain a meaningful amount of salary variance.
+**H0 is rejected.** Specifically:
+
+- **R-squared = `r rsq`**: The model explains about `r round(rsq * 100, 1)`% of the
+  differences in salary across job postings.
+- **Adjusted R-squared = `r adj_rsq`**: After adjusting for the number of predictors,
+  the model still explains `r round(adj_rsq * 100, 1)`% of salary variance. This is the
+  better number to report.
+- **Experience level** has the largest coefficients, confirming it is the strongest
+  predictor of salary, consistent with Stephany et al. (2023).
+- **Remote ratio** shows a positive coefficient
+  (`r round(coef(ols)["remote_ratio"], 2)` USD per percentage point), meaning jobs that
+  allow more remote work tend to pay slightly more, consistent with Cullen et al. (2025).
+- **Company size and education level** are also significant predictors (see Table 12).
+- **RMSE (test) = `r format(rmse_test_ols, big.mark=",")`** USD: on average, the model's
+  salary predictions are off by about `r format(rmse_test_ols, big.mark=",")` USD when
+  applied to new data it has not seen before.
+- All VIF values are below 5, confirming multicollinearity is not a problem (Table 13).
+
+\clearpage
+
+# Chapter 5: Conclusion and Recommendations
+
+## Conclusion
+
+This study analyzed salary data from 15,000 AI job postings to find out which factors
+most affect how much workers in this field are paid. Key findings are:
+
+1. **Experience level is the strongest predictor of salary.** The ANOVA (F = `r f_val`,
+   p `r p_anova_str`) and the large regression coefficients both confirm that salary
+   increases steadily from entry to executive level. **H0 is rejected.**
+2. **Remote work ratio has a small but positive effect on salary**
+   (`r round(coef(ols)["remote_ratio"], 2)` USD per percentage point), supporting the
+   findings of Cullen et al. (2025).
+3. **Education requirement and company size also significantly affect salary**, as shown
+   in the OLS coefficient table (Table 12).
+4. **The regression model explains about `r round(adj_rsq * 100, 1)`% of salary
+   variance** (adjusted R$^2$ = `r adj_rsq`), with a test-set prediction error of
+   about `r format(rmse_test_ols, big.mark=",")` USD.
+
+These results are consistent with human-capital theory (Becker, 1964), which predicts
+that workers who have invested more in education and experience will earn more. They are
+further reinforced by tournament theory (Lazear & Rosen, 1981), which accounts for the
+disproportionately large salary jump observed at the executive level, a pattern that
+human-capital theory alone, with its smoother predicted return curve, cannot fully explain.
+
+## Recommendations
+
+**Job seekers.** Focus on gaining experience and targeting larger companies, which tend
+to offer higher salaries. Seeking remote or hybrid roles may also come with a small
+salary advantage.
+
+**Employers and HR teams.** Use experience level and company size as the primary anchors
+when setting salary bands. Offering remote work options may help attract candidates who
+would otherwise go elsewhere.
+
+**Educators.** Align course content with the skills found in high-salary job postings to
+help graduates compete in the AI job market.
+
+**Future research.** A follow-up study could use panel data collected over time to test
+whether these relationships are causal. Adding more predictors (e.g., specific skills,
+job location) could also improve the model's explanatory power.
+
+\clearpage
+
+# References
+
+Becker, G. S. (1964). *Human capital: A theoretical and empirical analysis, with special
+reference to education*. National Bureau of Economic Research / Columbia University Press.
+https://www.nber.org/books-and-chapters/human-capital-theoretical-and-empirical-analysis-special-reference-education
+
+Deming, D. J., & Silliman, M. I. (2024). Skills and human capital in the labor market.
+*NBER Working Paper No. 32908*. National Bureau of Economic Research.
+https://doi.org/10.3386/w32908
+
+Cullen, Z., Pakzad-Hurson, B., & Perez-Truglia, R. (2025). Home sweet home: How much do
+employees value remote work? *AEA Papers and Proceedings, 115*, 276--281.
+https://doi.org/10.1257/pandp.20251029
+
+Karygulov, D., & Gaso, M. S. (2025). A comprehensive visual analytics study of the global
+AI job market: Salary trends, experience requirements, and remote work opportunities.
+*ResearchGate*. https://www.researchgate.net/publication/400215451
+
+Kim, J. S., & Koo, K. (2023). The dark side of tournaments: Evidence from innovation
+performance. *Research in International Business and Finance, 66*, Article 102003.
+https://doi.org/10.1016/j.ribaf.2023.102003
+
+Kline, P. (2024). Firm wage effects. *Handbook of Labor Economics, 5*, 115--181.
+https://doi.org/10.1016/bs.heslab.2024.11.005
+
+Lazear, E. P., & Rosen, S. (1981). Rank-order tournaments as optimum labor contracts.
+*Journal of Political Economy, 89*(5), 841--864. https://doi.org/10.1086/261010
+
+Sajjad, B. (2025). *Global AI job market & salary trends 2025* [Dataset]. Kaggle.
+https://www.kaggle.com/datasets/bismasajjad/global-ai-job-market-and-salary-trends-2025/data
+
+Stephany, F., Teutloff, O., & Kässi, O. (2023). Skills or degree? The rise of skill-based
+hiring for AI and green jobs. *arXiv preprint*. https://arxiv.org/abs/2312.11942
+
+Wang, X., Chen, X., Zhou, H., & You, X. (2022). A study on the relationship between
+compensation gap within the top management team and corporate performance: An empirical
+research based on the moderation effect of fairness preference. *Frontiers in Psychology,
+13*, Article 916832. https://doi.org/10.3389/fpsyg.2022.916832
+
+World Economic Forum. (2023). *Future of jobs report 2023*. World Economic Forum.
+https://www.weforum.org/reports/the-future-of-jobs-report-2023
+
+\clearpage
+
+# Appendices
+
+## Appendix A: Setup and Library Installation
+
+```{r appendix-setup, eval=FALSE, echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=68)}
+# Install any missing packages before knitting:
+install.packages(c("dplyr", "ggplot2", "corrplot", "car",
+                   "lmtest", "caret", "knitr", "scales"))
+```
+
+## Appendix B: Load Libraries
+
+```{r appendix-libraries, eval=FALSE, echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=68)}
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(corrplot)
+library(car)
+library(lmtest)
+library(caret)
+library(knitr)
+```
+
+## Appendix C: Data Loading and Inspection
+
+```{r appendix-load, eval=FALSE, echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=68)}
+data_raw <- read.csv("ai_job_dataset1.csv", stringsAsFactors = FALSE)
+cat("Dimensions:", nrow(data_raw), "rows x", ncol(data_raw), "columns\n")
+kable(head(data_raw[ , 1:8], 3),
+      caption = "Data Preview. First three rows showing the structure of the AI job dataset (first 8 of 20 variables shown).")
+```
+
+## Appendix D: Data Cleaning and Preprocessing
+
+```{r appendix-cleaning, eval=FALSE, echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=68)}
+# Imputation function (for demonstration -- no actual missing values in this dataset)
+mode_val <- function(x) {
+  ux <- unique(x[!is.na(x)])
+  ux[which.max(tabulate(match(x, ux)))]
+}
+
+data <- data_raw
+
+# Fill missing numeric values with column mean
+num_cols <- names(data)[sapply(data, is.numeric)]
+for (col in num_cols) {
+  if (any(is.na(data[[col]]))) {
+    data[[col]][is.na(data[[col]])] <- mean(data[[col]], na.rm = TRUE)
+  }
+}
+
+# Fill missing character values with mode
+char_cols <- names(data)[sapply(data, is.character)]
+for (col in char_cols) {
+  if (any(is.na(data[[col]]))) {
+    data[[col]][is.na(data[[col]])] <- mode_val(data[[col]])
+  }
+}
+
+cat("Remaining NAs after imputation:", sum(is.na(data)), "\n")
+
+# Factor conversion
+data$experience_level   <- factor(data$experience_level,
+                                   levels = c("EN", "MI", "SE", "EX"),
+                                   labels = c("Entry", "Mid", "Senior", "Executive"))
+data$employment_type    <- factor(data$employment_type)
+data$company_size       <- factor(data$company_size,
+                                   levels = c("S", "M", "L"),
+                                   labels = c("Small", "Medium", "Large"))
+data$education_required <- factor(data$education_required,
+                                   levels = c("Associate", "Bachelor", "Master", "PhD"))
+data$remote_ratio       <- as.integer(data$remote_ratio)
+```
+
+## Appendix E: Descriptive Statistics and Visualizations
+
+```{r appendix-descriptive, eval=FALSE, echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=68)}
+# Salary summary statistics
+sal_stats <- data %>%
+  summarise(
+    N      = n(),
+    Mean   = round(mean(salary_usd), 0),
+    Median = round(median(salary_usd), 0),
+    SD     = round(sd(salary_usd), 0),
+    Min    = min(salary_usd),
+    Q1     = round(quantile(salary_usd, 0.25), 0),
+    Q3     = round(quantile(salary_usd, 0.75), 0),
+    Max    = max(salary_usd)
+  )
+kable(sal_stats, caption = "Descriptive statistics for annual salary (USD) across all 15,000 AI job postings.",
+      format.args = list(big.mark = ","))
+
+# Frequency tables
+make_freq <- function(df, col) {
+  df %>%
+    count(!!sym(col), name = "Count") %>%
+    mutate(Percent = round(Count / sum(Count) * 100, 1)) %>%
+    rename(Level = !!sym(col))
+}
+kable(make_freq(data, "experience_level"),   caption = "Distribution of AI job postings by experience level")
+kable(make_freq(data, "employment_type"),    caption = "Distribution of AI job postings by employment type")
+kable(make_freq(data, "company_size"),       caption = "Distribution of AI job postings by company size")
+kable(make_freq(data, "education_required"), caption = "Distribution of AI job postings by education requirement")
+kable(make_freq(data, "remote_ratio"),       caption = "Distribution of AI job postings by remote work ratio")
+
+# Salary by experience level
+sal_exp <- data %>%
+  group_by(experience_level) %>%
+  summarise(N = n(), Mean = round(mean(salary_usd), 0),
+            Median = round(median(salary_usd), 0),
+            SD = round(sd(salary_usd), 0), .groups = "drop")
+kable(sal_exp, caption = "Mean, median, and standard deviation (SD) of annual salary by experience level.",
+      format.args = list(big.mark = ","))
+
+# Histogram
+ggplot(data, aes(x = salary_usd)) +
+  geom_histogram(aes(y = after_stat(density)),
+                 bins = 50, fill = "#4e79a7", colour = "white", alpha = 0.85) +
+  geom_density(colour = "#e15759", linewidth = 1) +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "Distribution of Annual Salary (USD)",
+       x = "Annual Salary (USD)", y = "Density") +
+  theme_minimal(base_size = 11)
+
+# Boxplot by experience level
+ggplot(data, aes(x = experience_level, y = salary_usd, fill = experience_level)) +
+  geom_boxplot(outlier.alpha = 0.25, outlier.size = 0.8) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_fill_brewer(palette = "Set2") +
+  labs(title = "Annual Salary by Experience Level",
+       x = "Experience Level", y = "Annual Salary (USD)") +
+  theme_minimal(base_size = 11) +
+  theme(legend.position = "none")
+
+# Bar chart: top 10 job titles
+top10 <- data %>% count(job_title, sort = TRUE) %>% slice_head(n = 10)
+ggplot(top10, aes(x = reorder(job_title, n), y = n)) +
+  geom_col(fill = "#76b7b2") +
+  coord_flip() +
+  labs(title = "Top 10 AI Job Titles", x = NULL, y = "Number of Postings") +
+  theme_minimal(base_size = 11)
+
+# Scatter: salary vs. remote ratio
+ggplot(data, aes(x = remote_ratio, y = salary_usd, colour = experience_level)) +
+  geom_jitter(alpha = 0.20, width = 2, height = 0, size = 0.5) +
+  geom_smooth(method = "lm", se = FALSE, linewidth = 0.9) +
+  scale_y_continuous(labels = scales::comma) +
+  scale_colour_brewer(palette = "Set1") +
+  labs(title = "Salary vs. Remote Ratio by Experience Level",
+       x = "Remote Ratio (%)", y = "Annual Salary (USD)",
+       colour = "Experience Level") +
+  theme_minimal(base_size = 11)
+```
+
+## Appendix F: One-Way ANOVA
+
+```{r appendix-anova, eval=FALSE, echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=68)}
+anova_model   <- aov(salary_usd ~ experience_level, data = data)
+anova_summary <- summary(anova_model)
+print(anova_summary)
+
+f_val       <- round(anova_summary[[1]]$`F value`[1], 2)
+p_anova     <- anova_summary[[1]]$`Pr(>F)`[1]
+p_anova_str <- ifelse(p_anova < 0.001, "< 0.001", round(p_anova, 4))
+```
+
+## Appendix G: Multiple Linear Regression
+
+```{r appendix-regression, eval=FALSE, echo=TRUE, tidy=TRUE, tidy.opts=list(width.cutoff=68)}
+# Train/test split
+set.seed(123)
+reg_idx   <- createDataPartition(data$salary_usd, p = 0.70, list = FALSE)
+train_reg <- data[ reg_idx, ]
+test_reg  <- data[-reg_idx, ]
+cat("Training set:", nrow(train_reg), "rows | Test set:", nrow(test_reg), "rows\n")
+
+# Fit OLS model
+ols     <- lm(salary_usd ~ experience_level + remote_ratio +
+                company_size + education_required, data = train_reg)
+ols_sum <- summary(ols)
+print(ols_sum)
+
+rsq       <- round(ols_sum$r.squared,     3)
+adj_rsq   <- round(ols_sum$adj.r.squared, 3)
+f_stat    <- round(ols_sum$fstatistic[1], 2)
+p_model   <- pf(ols_sum$fstatistic[1], ols_sum$fstatistic[2],
+                ols_sum$fstatistic[3], lower.tail = FALSE)
+p_mod_str <- ifelse(p_model < 0.001, "< 0.001", round(p_model, 4))
+
+rmse_fn        <- function(actual, predicted) round(sqrt(mean((actual - predicted)^2)), 0)
+rmse_train_ols <- rmse_fn(train_reg$salary_usd, predict(ols, train_reg))
+rmse_test_ols  <- rmse_fn(test_reg$salary_usd,  predict(ols, test_reg))
+
+# Coefficient table
+coef_df <- as.data.frame(coef(ols_sum))
+coef_df$Variable <- rownames(coef_df)
+coef_df <- coef_df %>%
+  select(Variable, Estimate, `Std. Error`, `t value`, `Pr(>|t|)`) %>%
+  mutate(
+    Estimate     = round(Estimate, 1),
+    `Std. Error` = round(`Std. Error`, 1),
+    `t value`    = round(`t value`, 2),
+    Sig = case_when(
+      `Pr(>|t|)` < 0.001 ~ "***",
+      `Pr(>|t|)` < 0.01  ~ "**",
+      `Pr(>|t|)` < 0.05  ~ "*",
+      `Pr(>|t|)` < 0.1   ~ ".",
+      TRUE               ~ ""
+    ),
+    `Pr(>|t|)` = round(`Pr(>|t|)`, 4)
+  )
+kable(coef_df, row.names = FALSE,
+      caption = "OLS regression coefficients (*** p<0.001, ** p<0.01, * p<0.05)",
+      format.args = list(big.mark = ","))
+
+# VIF
+kable(round(as.data.frame(vif(ols)), 3),
+      caption = "Variance Inflation Factors (VIF)")
+
+# Breusch-Pagan test
+bp <- bptest(ols)
+cat("Breusch-Pagan statistic:", round(bp$statistic, 2),
+    " | p-value:", round(bp$p.value, 4), "\n")
+
+# Diagnostic plots
+par(mfrow = c(2, 2), mar = c(4, 4, 2, 1))
+plot(ols, which = 1:4, pch = 16, cex = 0.35, col = rgb(0, 0, 0, 0.12))
+par(mfrow = c(1, 1))
+
+# Performance table
+kable(
+  data.frame(
+    Metric = c("R-squared", "Adjusted R-squared", "RMSE (train)", "RMSE (test)"),
+    Value  = c(rsq, adj_rsq,
+               format(rmse_train_ols, big.mark = ","),
+               format(rmse_test_ols,  big.mark = ","))
+  ),
+  caption = "Summary of OLS regression model performance (RMSE values in USD)"
+)
+```
